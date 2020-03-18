@@ -52,7 +52,7 @@ INIT:   ; The initialization routine
     ldi ZH, high(Treasure1<<1)    ; Load high byte of Treasure1<<1 program memory address to ZH
 
     ldi oloop, 3                  ; Outer loop counter; 3 for 3 treasures
-    ldi tnum, 1
+    ldi tnum, 1										; Load 1 into tnum, since we start with treasure 1
 SquareOperandsOuter:
     clr A                         ; Clear the A register, which is used to hold the largest operand
                                   ; for each treasure
