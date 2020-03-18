@@ -1,0 +1,325 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\setlength{\headheight}{13.6pt}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\usepackage{scalerel}
+\usepackage{mathtools}
+\usepackage{array}
+\usepackage{amssymb}
+\usepackage{xparse}
+\usepackage{courier}
+\usepackage{hhline}
+\usepackage{csquotes}
+\usepackage{float}
+\usepackage[inline]{enumitem}
+\usepackage{multirow}
+\usepackage{circuitikz}
+\usepackage{siunitx}
+\usepackage[T1]{fontenc}
+\usepackage{caption}
+
+% Makes \setItemLetter work
+\ExplSyntaxOn
+\DeclareExpandableDocumentCommand \AlphToNum { m }
+{
+   \int_from_alph:n { #1 }
+}
+\ExplSyntaxOff
+
+\makeatletter
+% Changes the number on an \item
+\newcommand\setItemNumber[1]{\setcounter{enumi}{\numexpr#1-1\relax}}
+% Changes the letter on an \item
+\newcommand\setItemLetter[1]{\setcounter{enum\romannumeral\enit@depth}{\numexpr\AlphToNum{#1}-1}}
+\makeatother
+% Aligns the top of a displaymath environment with the top of an \item
+\newcommand\DisplayMathItem[1][]{%
+  \ifx\relax#1\relax  \item \else \item[#1] \fi
+  \abovedisplayskip=0pt\abovedisplayshortskip=0pt~\vspace*{-\baselineskip}}
+
+\newcommand*\OR{\ |\ }
+
+\lhead{ECE 375: Homework 4}
+\chead{Jason Chen}
+\rhead{March 7, 2020}
+
+\begin{document}
+
+\begin{enumerate}[leftmargin=0.2in]
+
+% #1
+\item
+  \begin{enumerate}
+    \item The microoperations required to implement \texttt{CLR Rd} are shown in the table below. Clearing a register means setting all of its bits to 0. That can be accomplished by computing the exclusive-OR (XOR) of the register with itself and storing the result back into the register. The XOR between two bits is 1 only if exactly one of the bits is a 1. When the register is XOR'ed with itself, every corresponding pair of bits is always the same, so the XOR can never be 1.
+      \begin{table}[H]
+        \centering
+        \begin{tabular}{|c|l|} \hline
+          Stage & \multicolumn{1}{c|}{Microoperations} \\ \hline
+          EX    & Rd $\leftarrow$ Rd $\oplus$ Rd \\ \hline
+        \end{tabular}
+        \label{tab:1a}
+      \end{table}
+
+    \item The completed control signals and RAL output tables are shown below. Explanations follow the table.
+
+      \begin{table}[H]
+        \centering
+        \begin{tabular}{ll}
+          \begin{tabular}{|p{0.12\linewidth}|>{\centering\arraybackslash}p{0.12\linewidth}|>{\centering\arraybackslash}p{0.12\linewidth}|}\hline
+            \multicolumn{1}{|c|}{\multirow{2}{0.12\linewidth}{Control Signals}} & \multicolumn{1}{c|}{\multirow{2}{*}{IF}} & \multicolumn{1}{c|}{\texttt{CLR}} \\ \cline{3-3} 
+            \multicolumn{1}{|c|}{} & \multicolumn{1}{c|}{} & \multicolumn{1}{c|}{EX} \\ \hhline{|=|=|=|}
+            MJ        & 0     & x     \\ \hline
+            MK        & 0     & x     \\ \hline
+            ML        & 0     & x     \\ \hline
+            IR\_en    & 1     & x     \\ \hline
+            PC\_en    & 1     & 0     \\ \hline
+            PCh\_en   & 0     & 0     \\ \hline
+            PCl\_en   & 0     & 0     \\ \hline
+            NPC\_en   & 1     & x     \\ \hline
+            SP\_en    & 0     & 0     \\ \hline
+            DEMUX     & x     & x     \\ \hhline{|=|=|=|}
+            MA        & x     & 1     \\ \hline
+            MB        & x     & 0     \\ \hline
+            ALU\_f    & xxxx  & 1010  \\ \hline
+            MC        & xx    & 00    \\ \hline
+            RF\_wA    & 0     & 0     \\ \hline
+            RF\_wB    & 0     & 1     \\ \hline
+            MD        & x     & x     \\ \hline
+            ME        & x     & x     \\ \hline
+            DM\_r     & x     & x     \\ \hline
+            DM\_w     & 0     & 0     \\ \hline
+            MF        & x     & x     \\ \hline
+            MG        & x     & x     \\ \hline
+            Adder\_f  & xx    & xx    \\ \hline
+            Inc\_Dec  & x     & x     \\ \hline
+            MH        & x     & x     \\ \hline
+            MI        & x     & x     \\ \hline
+          \end{tabular}
+          &
+          \begin{tabular}{|p{0.12\linewidth}|>{\centering\arraybackslash}p{0.12\linewidth}|}\hline
+            \multicolumn{1}{|c|}{\multirow{2}{0.12\linewidth}{RAL Output}} & \multicolumn{1}{c|}{\texttt{CLR}} \\ \cline{2-2} 
+            \multicolumn{1}{|c|}{} & \multicolumn{1}{c|}{EX} \\ \hhline{|=|=|}
+            wA & x \\ \hline
+            wB & Rd \\ \hline
+            rA & Rd \\ \hline
+            rB & Rd \\ \hline
+          \end{tabular}
+        \end{tabular}
+        \label{tab:1b}
+      \end{table}
+
+      In the EX stage, rA, rB, and wB are all Rd because the operation being performed is an XOR of Rd with itself, with the result being put back into Rd. MA is 1 to use the second register output from the register file as the ALU's second input. ALU\_f is 1010 to perform an XOR operation between its two inputs, A and B. MB and MC are 0 to use the output of the ALU as the value for inB, which is the value that will be written to Rd. RF\_wB is 1 in order to write the value at inB into Rd. RF\_wA is 0 because only the register in wB is being written.\\
+
+      Additionally, PC\_en, PCh\_en, PCl\_en, SP\_en are 0 to prevent the program counter and stack pointer from being changed. And DM\_w is 0 to prevent the data memory from being updated. IR\_en is a "don't care" because there is only one execution cycle for this command, and the instruction register will be replaced on the next fetch cycle.
+  \end{enumerate}
+
+% #2
+\item
+  \begin{enumerate}
+    \item The microoperations required to implement \texttt{STD Y+q, Rr} are shown in the table below. In the first stage, the displacement value \texttt{q} is added to the address stored in Y using the address adder, and the result is placed into DMAR so that the next execute stage can use that offset address to write to the data memory. In the second stage, EX2, the contents of the \texttt{Rr} register are written to the memory location pointed to by the displaced address \texttt{Y+q}, which is stored in DMAR. DMAR is connected to the address input of the data memory, so this microoperation is performed in a single execute stage.
+      \begin{table}[H]
+        \centering
+        \begin{tabular}{|c|l|} \hline
+          Stage & \multicolumn{1}{c|}{Microoperations} \\ \hline
+          EX1   & DMAR $\leftarrow$ Y+q \\ \hline
+          EX2   & M[DMAR] $\leftarrow$ Rr \\ \hline
+        \end{tabular}
+        \label{tab:2a}
+      \end{table}
+
+    \item The completed control signals and RAL output tables are shown below, following the explanations. In the first stage EX1, MF is 1 to get the zero-filled displacement \texttt{q} from the from the alignment unit as an input to the address adder since that is the displacement being added. MG is 1 because the other input to the address adder is the address stored in the \texttt{Y} register. rA and rB are YH and YL since the other input to the address adder is the address stored in Y. Adder\_f is 00 because the target address is \texttt{Y+q}, so the two address adder inputs should be summed. MH is 1 to latch the output of the address adder onto DMAR. IR\_en, PC\_en, PCh\_en, PCl\_en, SP\_en are 0 to prevent the instruction register, program counter, and stack pointer from being changed. And RF\_wA, RF\_wB, and DM\_w are all 0 to prevent the register file and data memory from being modified. All other signals are "don't cares."\\
+
+      In the second stage EX2, MD, ME, and DM\_w are all 1 to store the contents of the Rr register at the memory location pointed to by DMAR. rB is Rr since the data input mux of the data memory module is connected to the outB port of the register file. DM\_r is 0 because the data memory is being written to, so it should not be simultaneously read from. PC\_en, PCh\_en, PCl\_en, SP\_en are 0 to prevent the program counter and stack pointer from being changed. Additionally, RF\_wA and RF\_wB are both 0 to prevent the register file from being modified. IR\_en is a "don't care" because this is the last execution cycle; IR will be replaced in the next fetch cycle. All other signals are also "don't cares."
+      \begin{table}[H]
+        \centering
+        \begin{tabular}{ll}
+          \begin{tabular}{|p{0.1\linewidth}|>{\centering\arraybackslash}p{0.1\linewidth}|>{\centering\arraybackslash}p{0.1\linewidth}|>{\centering\arraybackslash}p{0.1\linewidth}|}\hline
+            \multicolumn{1}{|c|}{\multirow{2}{0.1\linewidth}{Control Signals}} & \multicolumn{1}{c|}{\multirow{2}{*}{IF}} & \multicolumn{2}{c|}{\texttt{STD Y+q, Rr}} \\ \cline{3-4} 
+            \multicolumn{1}{|c|}{} & \multicolumn{1}{c|}{} & \multicolumn{1}{c|}{EX1} & \multicolumn{1}{c|}{EX2} \\ \hhline{|=|=|=|=|}
+            MJ        & 0     & x     & x     \\ \hline
+            MK        & 0     & x     & x     \\ \hline
+            ML        & 0     & x     & x     \\ \hline
+            IR\_en    & 1     & 0     & x     \\ \hline
+            PC\_en    & 1     & 0     & 0     \\ \hline
+            PCh\_en   & 0     & 0     & 0     \\ \hline
+            PCl\_en   & 0     & 0     & 0     \\ \hline
+            NPC\_en   & 1     & x     & x     \\ \hline
+            SP\_en    & 0     & 0     & 0     \\ \hline
+            DEMUX     & x     & x     & x     \\ \hhline{|=|=|=|=|}
+            MA        & x     & x     & x     \\ \hline
+            MB        & x     & x     & x     \\ \hline
+            ALU\_f    & xxxx  & xxxx  & xxxx  \\ \hline
+            MC        & xx    & xx    & xx    \\ \hline
+            RF\_wA    & 0     & 0     & 0     \\ \hline
+            RF\_wB    & 0     & 0     & 0     \\ \hline
+            MD        & x     & x     & 1     \\ \hline
+            ME        & x     & x     & 1     \\ \hline
+            DM\_r     & x     & x     & 0     \\ \hline
+            DM\_w     & 0     & 0     & 1     \\ \hline
+            MF        & x     & 1     & x     \\ \hline
+            MG        & x     & 1     & x     \\ \hline
+            Adder\_f  & xx    & 00    & xx    \\ \hline
+            Inc\_Dec  & x     & x     & x     \\ \hline
+            MH        & x     & 1     & x     \\ \hline
+            MI        & x     & x     & x     \\ \hline
+          \end{tabular}
+          &
+          \begin{tabular}{|p{0.1\linewidth}|>{\centering\arraybackslash}p{0.1\linewidth}|>{\centering\arraybackslash}p{0.1\linewidth}|}\hline
+            \multicolumn{1}{|c|}{\multirow{2}{0.1\linewidth}{RAL Output}} & \multicolumn{2}{c|}{\texttt{STD Y+q, Rr}} \\ \cline{2-3} 
+            \multicolumn{1}{|c|}{} & \multicolumn{1}{c|}{EX1} & \multicolumn{1}{c|}{EX2} \\ \hhline{|=|=|=|}
+            wA & x  & x \\ \hline
+            wB & x  & x \\ \hline
+            rA & YH & x \\ \hline
+            rB & YL & Rr \\ \hline
+          \end{tabular}
+        \end{tabular}
+        \label{tab:2b}
+      \end{table}
+  \end{enumerate}
+
+% #3
+\item
+  \begin{enumerate}
+    \item The microoperations required to implement \texttt{ICALL} are shown in the table below. In the first execute cycle, the low byte of the return address, stored in RARl, is pushed onto the stack, and the stack pointer is decremented.\\
+
+      In the second execute cycle, the address in Z (pointing to the target address for the \texttt{ICALL} instruction) gets latched onto PC through the address adder. Additionally, the high byte of the return address, in RARh, is pushed onto the stack, and the stack pointer is decremented again. At this point, the \texttt{ICALL} instruction has completed since the program counter is now pointing to the target instruction, and the entire return address is at the top of the stack.
+
+      \begin{table}[H]
+        \centering
+        \begin{tabular}{|c|l|} \hline
+          Stage & \multicolumn{1}{c|}{Microoperations} \\ \hline
+          EX1   & M[SP] $\leftarrow$ RARl, SP $\leftarrow$ SP - 1 \\ \hline
+          EX2   & PC $\leftarrow$ Z, M[SP] $\leftarrow$ RARh, SP $\leftarrow$ SP - 1 \\ \hline
+        \end{tabular}
+        \label{tab:3a}
+      \end{table}
+
+    \item The completed control signals and RAL output tables are shown below. Explanations follow the table.
+
+      \begin{table}[H]
+        \centering
+        \begin{tabular}{ll}
+          \begin{tabular}{|p{0.1\linewidth}|>{\centering\arraybackslash}p{0.1\linewidth}|>{\centering\arraybackslash}p{0.1\linewidth}|>{\centering\arraybackslash}p{0.1\linewidth}|}\hline
+            \multicolumn{1}{|c|}{\multirow{2}{0.1\linewidth}{Control Signals}} & \multicolumn{1}{c|}{\multirow{2}{*}{IF}} & \multicolumn{2}{c|}{\texttt{ICALL}} \\ \cline{3-4} 
+            \multicolumn{1}{|c|}{} & \multicolumn{1}{c|}{} & \multicolumn{1}{c|}{EX1} & \multicolumn{1}{c|}{EX2} \\ \hhline{|=|=|=|=|}
+            MJ        & 0     & x     & 1     \\ \hline
+            MK        & 0     & x     & x     \\ \hline
+            ML        & 0     & x     & x     \\ \hline
+            IR\_en    & 1     & 0     & x     \\ \hline
+            PC\_en    & 1     & 0     & 1     \\ \hline
+            PCh\_en   & 0     & 0     & 0     \\ \hline
+            PCl\_en   & 0     & 0     & 0     \\ \hline
+            NPC\_en   & 1     & 0     & x     \\ \hline
+            SP\_en    & 0     & 1     & 1     \\ \hline
+            DEMUX     & x     & x     & x     \\ \hhline{|=|=|=|=|}
+            MA        & x     & x     & x     \\ \hline
+            MB        & x     & x     & x     \\ \hline
+            ALU\_f    & xxxx  & xxxx  & xxxx  \\ \hline
+            MC        & xx    & xx    & xx    \\ \hline
+            RF\_wA    & 0     & 0     & 0     \\ \hline
+            RF\_wB    & 0     & 0     & 0     \\ \hline
+            MD        & x     & 0     & 0     \\ \hline
+            ME        & x     & 0     & 0     \\ \hline
+            DM\_r     & x     & 0     & 0     \\ \hline
+            DM\_w     & 0     & 1     & 1     \\ \hline
+            MF        & x     & x     & x     \\ \hline
+            MG        & x     & x     & 1     \\ \hline
+            Adder\_f  & xx    & xx    & 11    \\ \hline
+            Inc\_Dec  & x     & 1     & 1     \\ \hline
+            MH        & x     & x     & x     \\ \hline
+            MI        & x     & 0     & 1     \\ \hline
+          \end{tabular}
+          &
+          \begin{tabular}{|p{0.1\linewidth}|>{\centering\arraybackslash}p{0.1\linewidth}|>{\centering\arraybackslash}p{0.1\linewidth}|}\hline
+            \multicolumn{1}{|c|}{\multirow{2}{0.1\linewidth}{RAL Output}} & \multicolumn{2}{c|}{\texttt{ICALL}} \\ \cline{2-3} 
+            \multicolumn{1}{|c|}{} & \multicolumn{1}{c|}{EX1} & \multicolumn{1}{c|}{EX2} \\ \hhline{|=|=|=|}
+            wA & x & x \\ \hline
+            wB & x & x \\ \hline
+            rA & x & ZH \\ \hline
+            rB & x & ZL \\ \hline
+          \end{tabular}
+        \end{tabular}
+        \label{tab:3b}
+      \end{table}
+
+      In the EX1 stage, ME, MD, and MI are set to 0, while DM\_w is 1, in order to push the low byte of the return address (in RARl) to the stack (store in memory location pointed to by SP). DM\_r is 0 since data memory is being written to. SP\_en and INC\_Dec are both 1 to decrement the value of the stack pointer (SP) and latch the result back onto SP. IR\_en, PC\_en, PCh\_en, and PCl\_en are 0 to prevent the instruction register and program counter from being changed. Additionally, RF\_wA and RF\_wB are 0 to prevent the register file from being modified. NPC\_en is 0 so that RAR does not change since we still need its high byte. All remaining control signals are "don't cares."\\
+
+      In the EX2 stage, MJ is set to 1 so that the output of the address adder is made available to the program counter. PC\_en is set to 1 so that the value from the address adder, the target address, going through MUXJ, is latched onto PC. PCh\_en and PCl\_en are both 0 since PC\_en is asserted, and only one of the three can be 1. SP\_en and Inc\_Dec are 1 in order to decrement the stack pointer and latch it back onto SP. MG is 1, and Adder\_f is 11, to move the target address from the Z register through the address adder and into PC.\\
+
+      MD and ME are 0, while MI and DM\_w are set at 1, to push the high byte of the return address, from RARh, to the stack (store it at location in memory pointed to by SP). RF\_wA, and RF\_wB are set to 0 to prevent the register file from being modified. DM\_r is 0 since data memory is being written to (the return address is being pushed to the stack). rA and rB are ZH and ZL, respectively, in order to read the target address from the Z register. IR\_en is a "don't care" because this is the last execute cycle. All remaining signals are also "don't cares."
+
+  \end{enumerate}
+
+% #4
+\item
+  \begin{enumerate}
+    \item The microoperations required to implement \texttt{LPM R7, Z} are shown in the table below. In EX1, the program memory address in Z is latched onto PMAR through the address adder. That is the memory location of the value that needs to be loaded from program memory. In EX2, the contents of the memory pointed to by Z (and PMAR) is latched onto MDR. And in EX3, the loaded program memory, stored in MDR, is written to R7 in the register file.
+      \begin{table}[H]
+        \centering
+        \begin{tabular}{|c|l|} \hline
+          Stage & \multicolumn{1}{c|}{Microoperations} \\ \hline
+          EX1 & PMAR $\leftarrow$ Z \\ \hline
+          EX2 & MDR $\leftarrow$ M[PMAR] \\ \hline
+          EX3 & R7 $\leftarrow$ MDR \\ \hline
+        \end{tabular}
+        \label{tab:4a}
+      \end{table}
+
+    \item The completed control signals and RAL output tables are shown below. In EX1, rA and rB are ZH and ZL, respectively, because the program memory address stored in Z needs to be moved into PMAR. MG is 1 and Adder\_f is 11 while MF is "don't care" because the address in Z is simply being moved to PMAR. The B input of the address adder does not matter. IR\_en, PC\_en, PCh\_en, PCl\_en, and SP\_en are 0 to prevent the instruction register, program counter, and stack pointer from being changed. Additionally, RF\_wA, RF\_wB, and DM\_w are 0 to prevent the register file and data memory from being modified. All remaining control signals are "don't cares." \\
+
+      In EX2, ML is 1 to read the contents of program memory stored at the address in PMAR. Those contents then get latched onto MDR. IR\_en, PC\_en, PCh\_en, PCl\_en, and SP\_en are 0 to prevent the instruction register, program counter, and stack pointer from being changed. Additionally, RF\_wA, RF\_wB, and DM\_w are 0 to prevent the register file and data memory from being modified. All remaining control signals are "don't cares." \\
+
+      In EX3, wB is R7 because that is the register to which the loaded program memory should be stored. MC is 10 because the output of MDR should be selected as the input to MUXC, which will select the value to be stored in the register specified by wB. RF\_wB is 1 to write the value at inB to the register at wB, meaning the value of MDR is stored into R7. PC\_en, PCh\_en, PCl\_en, and SP\_en are 0 to prevent the program counter and stack pointer from being changed. Additionally, RF\_wA and DM\_w are 0 to prevent the register at rA and data memory from being modified. IR\_en is a "don't care" because this is the last execute cycle, and IR will be replaced during the next fetch cycle. All remaining control signals are also "don't cares." \\
+      \begin{table}[H]
+        \centering
+        \begin{tabular}{|p{0.1\linewidth}|>{\centering\arraybackslash}p{0.1\linewidth}|>{\centering\arraybackslash}p{0.1\linewidth}|>{\centering\arraybackslash}p{0.1\linewidth}|>{\centering\arraybackslash}p{0.1\linewidth}|}\hline
+          \multicolumn{1}{|c|}{\multirow{2}{0.1\linewidth}{Control Signals}} & \multicolumn{1}{c|}{\multirow{2}{*}{IF}} & \multicolumn{3}{c|}{\texttt{LPM R7, Z}} \\ \cline{3-5} 
+          \multicolumn{1}{|c|}{} & \multicolumn{1}{c|}{} & \multicolumn{1}{c|}{EX1} & \multicolumn{1}{c|}{EX2} & \multicolumn{1}{c|}{EX3} \\ \hhline{|=|=|=|=|=|}
+          MJ        & 0     & x     & x     & x     \\ \hline
+          MK        & 0     & x     & x     & x     \\ \hline
+          ML        & 0     & x     & 1     & x     \\ \hline
+          IR\_en    & 1     & 0     & 0     & x     \\ \hline
+          PC\_en    & 1     & 0     & 0     & 0     \\ \hline
+          PCh\_en   & 0     & 0     & 0     & 0     \\ \hline
+          PCl\_en   & 0     & 0     & 0     & 0     \\ \hline
+          NPC\_en   & 1     & x     & x     & x     \\ \hline
+          SP\_en    & 0     & 0     & 0     & 0     \\ \hline
+          DEMUX     & x     & x     & x     & x     \\ \hhline{|=|=|=|=|=|}
+          MA        & x     & x     & x     & x     \\ \hline
+          MB        & x     & x     & x     & x     \\ \hline
+          ALU\_f    & xxxx  & xxxx  & xxxx  & xxxx  \\ \hline
+          MC        & xx    & xx    & xx    & 10    \\ \hline
+          RF\_wA    & 0     & 0     & 0     & 0     \\ \hline
+          RF\_wB    & 0     & 0     & 0     & 1     \\ \hline
+          MD        & x     & x     & x     & x     \\ \hline
+          ME        & x     & x     & x     & x     \\ \hline
+          DM\_r     & x     & x     & x     & x     \\ \hline
+          DM\_w     & 0     & 0     & 0     & 0     \\ \hline
+          MF        & x     & x     & x     & x     \\ \hline
+          MG        & x     & 1     & x     & x     \\ \hline
+          Adder\_f  & xx    & 11    & xx    & xx    \\ \hline
+          Inc\_Dec  & x     & x     & x     & x     \\ \hline
+          MH        & x     & x     & x     & x     \\ \hline
+          MI        & x     & x     & x     & x     \\ \hline
+        \end{tabular}
+        \label{tab:4b1}
+      \end{table}
+
+      \begin{table}[H]
+        \centering
+        \begin{tabular}{|p{0.1\linewidth}|>{\centering\arraybackslash}p{0.1\linewidth}|>{\centering\arraybackslash}p{0.1\linewidth}|>{\centering\arraybackslash}p{0.1\linewidth}|}\hline
+          \multicolumn{1}{|c|}{\multirow{2}{0.1\linewidth}{RAL Output}} & \multicolumn{3}{c|}{\texttt{LPM R7, Z}} \\ \cline{2-4} 
+          \multicolumn{1}{|c|}{} & \multicolumn{1}{c|}{EX1} & \multicolumn{1}{c|}{EX2} & \multicolumn{1}{c|}{EX3} \\ \hhline{|=|=|=|=|}
+          wA & x  & x & x   \\ \hline
+          wB & x  & x & R7  \\ \hline
+          rA & ZH & x & x   \\ \hline
+          rB & ZL & x & x   \\ \hline
+        \end{tabular}
+        \label{tab:4b2}
+      \end{table}
+  \end{enumerate}
+\end{enumerate}
+
+\end{document}
