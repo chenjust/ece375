@@ -9,30 +9,21 @@
 ;*	Internal Register Definitions and Constants
 ;*	(feel free to edit these or add others)
 ;***********************************************************
-.def	rlo = r0				; Low byte of MUL result
-.def	rhi = r1				; High byte of MUL result
-.def	zero = r2				; Zero register, set to zero in INIT, useful for calculations
-.def	A = r3					; A variable
-.def	B = r4					; Another variable
-.def	dsumlo = r5
-.def	dsumhi = r6
-.def	mpr = r16				; Multipurpose register 
-.def	oloop = r17				; Outer Loop Counter
-.def	iloop = r18				; Inner Loop Counter
-.def	dataptr = r19			; data ptr
-.def	sumlo			= r21
-.def	sumhi = r22
-.def	smallest = r23
-.def	samecnt	= r24
-
-;***********************************************************
-;*	Data segment variables
-;*	(feel free to edit these or add others)
-;***********************************************************
-.dseg
-.org	$0100						; data memory allocation for operands
-operand1:		.byte 2				; allocate 2 bytes for a variable named op1
-
+.def	rlo				= r0	; Low byte of MUL result
+.def	rhi				= r1	; High byte of MUL result
+.def	zero			= r2	; Zero register, set to zero in INIT, useful for calculations
+.def	A					= r3	; A variable
+.def	avg				= r4	; Average distance result
+.def	dsumlo		= r5	; Low byte for running sum of all three distances
+.def	dsumhi		= r6	; High byte for running sum of all three distances
+.def	mpr				= r16	; Multipurpose register 
+.def	oloop			= r17	; Outer Loop Counter
+.def	iloop			= r18	; Inner Loop Counter
+.def	bestnum		= r19	; Number corresponding to the closest treasure
+.def	sumlo			= r21	; Low byte for sum on loop iterations
+.def	sumhi			= r22	; High byte for sum on loop iterations
+.def	smallest	= r23	; Distance to the closest treasure
+.def	samecnt		= r24	; Number of treasures that are the same (closest) distance away
 
 ;***********************************************************
 ;*	Start of Code Segment
@@ -48,46 +39,45 @@ operand1:		.byte 2				; allocate 2 bytes for a variable named op1
 ; Program Initialization
 ;-----------------------------------------------------------
 INIT:	; The initialization routine
-		clr		zero
-		clr		dsumlo
-		clr		dsumhi
-		clr		samecnt
-		ser		smallest
+		clr		zero										; Clear the zero register
+		clr		dsumlo									; Clear the dsumlo register
+		clr		dsumhi									; Clear the dsumhi register
+		clr		samecnt									; Clear samecnt register
+		ser		smallest								; Set all bits in the smallest register
 
-; Compute square of treasure locations
-		ldi YL, low(Result1)
-		ldi YH, high(Result1)
-		ldi	ZL,	low(Treasure1<<1)
-		ldi ZH, high(Treasure1<<1)
+		ldi YL, low(Result1)					; Load low byte of Result1 address to YL
+		ldi YH, high(Result1)					; Load high byte of Result1 address to YH
+		ldi	ZL,	low(Treasure1<<1)			; Load low byte of Treasure1<<1 program memory address to ZL
+		ldi ZH, high(Treasure1<<1)		; Load high byte of Treasure1<<1 program memory address to ZH
 
 		ldi oloop, 3									; Outer loop counter; 3 for 3 treasures
 SquareOperandsOuter:
 		clr A													; Clear the A register, which is used to hold the largest operand
 																	; for each treasure
-		clr sumlo
-		clr sumhi
+		clr sumlo											; Clear the sumlo register, which is used to hold the low byte of
+																	; the squared operands sum (x^2 + y^2)
+		clr sumhi											; Clear sumhi register (for high byte of above result)
 		ldi iloop, 2									; Inner loop counter; 2 operands per treasure
 SquareOperandsInner:
 		lpm mpr, Z+										; Load operand from program memory
-		mov r20, mpr									; Copy mpr to r20
-		cpi r20, 0										; Compare r20 to constant value 0
-		brge GetLargestOperand				; If value in r20 is positive, branch to GetLargestOperand
-		neg r20												; If the value is negative, get absolute value
+		cpi mpr, 0										; Compare mpr to constant value 0
+		brge GetLargestOperand				; If value in mpr is positive, branch to GetLargestOperand
+		neg mpr												; If value is negative, get the absolute value
 GetLargestOperand:
-		cp r20, A											; Compare the value in r20 to the value in A
+		cp mpr, A											; Compare the value in mpr to the value in A
 		brlt StoreSquaredOperands			; If it's less, branch to StoreSquaredOperands
-		mov A, r20										; If r20 >= A, replace the value in A with r20; A contains the
+		mov A, mpr										; If mpr >= A, replace the value in A with mpr; A holds the
 																	; larger of the two operands for each treasure.
 StoreSquaredOperands:
-		muls mpr, mpr									; Square the value of the operand
+		mul mpr, mpr									; Square the value of the operand
 		st Y+, rlo										; Store low byte of the product
 		st Y+, rhi										; Store high byte of the product
-		add sumlo, rlo
-		adc sumhi, rhi
+		add sumlo, rlo								; Add low byte of squared value to the low byte of sum (of x^2 + y^2)
+		adc sumhi, rhi								;	Add high byte of product with carry to high byte of sum
 		dec iloop											; Decrement the inner loop counter
 		brne SquareOperandsInner			; If iloop is not 0, branch to SquareOperandsInner
-		st Y+, sumlo
-		st Y+, sumhi
+		st Y+, sumlo									; Store low byte of sum of the squared operands at Y
+		st Y+, sumhi									; Store high byte of sum of squared operands at Y
 
 SquareRootCalculate:
 		mul A, A											; Square the value in A
@@ -102,8 +92,8 @@ SquareRootFound:
 		brlo AddSqrtToSum							; If smallest < A, branch to AddSqrtToSum
 		breq SqrtEqualsSmallest				; If smallest == A, branch to SqrtEqualsSmallest
 		mov smallest, A								; If A < smallest, replace smallest with value in A
-		mov dataptr, oloop						; Copy oloop to dataptr
-		sub dataptr, iloop						; Subtract iloop from dataptr; this gives the treasure number for
+		mov bestnum, oloop						; Copy oloop to bestnum
+		sub bestnum, iloop						; Subtract iloop from bestnum; this gives the treasure number for
 																	; the current iteration
 		ldi samecnt, 1								; Load samecnt to 1, since only one treasure is at this distance so far
 		rjmp AddSqrtToSum							; Jump to AddSqrtToSum
@@ -122,14 +112,14 @@ AddSqrtToSum:
 																	; BestDistanceSame
 		brlo BestDistanceStore				; If only one treasure had the closest distance, branch to
 																	; BestDistanceStore
-		ldi dataptr, -3								; Otherwise, all 3 had the same distance; load -3 to dataptr
+		ldi bestnum, -3								; Otherwise, all 3 had the same distance; load -3 to bestnum
 		rjmp BestDistanceStore				; BestDistanceStore
 BestDistanceSame:
-		ldi dataptr, -2								; Two treasures had the closest distance; load -2 to dataptr
+		ldi bestnum, -2								; Two treasures had the closest distance; load -2 to bestnum
 BestDistanceStore:
-		st Y+, dataptr								; Store treasure with closest distance at BestChoice address
+		st Y+, bestnum								; Store treasure with closest distance at BestChoice address
 
-		clr smallest									; Clear the smallest register
+		clr avg												; Clear the avg register
 		ldi mpr, 3										; Load 3 to mpr; this is the number of treasures
 AverageLoop:
 		cp dsumlo, mpr								; Compare low byte of sum of all distances to mpr (3)
@@ -137,16 +127,16 @@ AverageLoop:
 		brlo AverageFound							; If the sum is < 3, branch to AverageFound
 		sub dsumlo, mpr								; Subtract 3 from lower byte of sum
 		sbc dsumhi, zero							; Subtract any carry from the previous sub instruction
-		inc smallest									;	Increment the number of times we're subtracted
+		inc avg												;	Increment the number of times we're subtracted
 		rjmp AverageLoop							; Jump to AverageLoop
 AverageFound:
 		ldi mpr, 2										; Load 2 to mpr
 		cp dsumlo, mpr								; Compare value of dsumlo to 2
 		brlo AverageStore							; If sumlo < 2, jump to AverageStore; this means the remainder <= 1
-		inc smallest									; Otherwise, round up, since the remainder is 2
+		inc avg												; Otherwise, round up, since the remainder is 2
 		rjmp AverageStore							; Jump to AverageStore
 AverageStore:
-		st Y, smallest								; Store rounded average at Y pointer
+		st Y, avg											; Store rounded average at Y pointer
 
 		jmp	Grading
 
