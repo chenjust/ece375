@@ -1,0 +1,223 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\setlength{\headheight}{13.6pt}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\usepackage{scalerel}
+\usepackage{mathtools}
+\usepackage{amssymb}
+\usepackage{xparse}
+\usepackage{csquotes}
+\usepackage{float}
+\usepackage[inline]{enumitem}
+\usepackage{circuitikz}
+\usepackage{siunitx}
+\usepackage{tikz}
+\usetikzlibrary{arrows}
+\usetikzlibrary{arrows.meta,quotes}
+\usetikzlibrary{automata,positioning}
+
+% Makes \setItemLetter work
+\ExplSyntaxOn
+\DeclareExpandableDocumentCommand \AlphToNum { m }
+{
+   \int_from_alph:n { #1 }
+}
+\ExplSyntaxOff
+
+\makeatletter
+% Changes the number on an \item
+\newcommand\setItemNumber[1]{\setcounter{enumi}{\numexpr#1-1\relax}}
+% Changes the letter on an \item
+\newcommand\setItemLetter[1]{\setcounter{enum\romannumeral\enit@depth}{\numexpr\AlphToNum{#1}-1}}
+\makeatother
+% Aligns the top of a displaymath environment with the top of an \item
+\newcommand\DisplayMathItem[1][]{%
+  \ifx\relax#1\relax  \item \else \item[#1] \fi
+  \abovedisplayskip=0pt\abovedisplayshortskip=0pt~\vspace*{-\baselineskip}}
+
+\newcommand*\OR{\ |\ }
+
+\lhead{ECE 375: Homework 2}
+\chead{Jason Chen}
+\rhead{February 2, 2020}
+
+\begin{document}
+
+\begin{enumerate}[leftmargin=0.2in]
+
+\item For the fetch cycle, I am assuming that the upper byte of the 16-bit instruction is pointed to by PC, while the lower byte of the instruction is pointed to by PC + 1. I am also assuming that, like in AVR, X refers to registers R27:26.
+
+\textbf{Fetch Cycle}:
+\begin{itemize}
+  \item \textbf{Step 1}: MAR $\leftarrow$ PC
+
+    For the first step, the address in the program counter is moved to MAR so the first byte of the instruction can be retrieved.
+
+  \item \textbf{Step 2}: MDR $\leftarrow$ M[MAR], PC $\leftarrow$ PC + 1
+
+    In the second step, the upper byte of the instruction, stored at the address in MAR, is loaded into MDR. The program counter is incremented to the next (lower) byte of the instruction.
+
+  \item \textbf{Step 3}: IR[15..8] $\leftarrow$ MDR
+
+    In the third step, the byte loaded into MDR (the upper byte of the instruction) is copied into the upper byte of the instruction register. Only one byte can be loaded into the instruction register at a time because MDR is only 8 bits wide, and data in the memory is stored as consecutive bytes.
+
+  \item \textbf{Step 4}: MAR $\leftarrow$ PC
+    
+    In the fourth step, the address in the program counter is again moved to MAR. The instruction is two bytes, but each memory address addresses only one byte, so it takes two loads from memory to get all 16 bits. MAR now points to the lower byte of the instruction.
+
+  \item \textbf{Step 5}: MDR $\leftarrow$ M[MAR], PC $\leftarrow$ PC + 1
+
+    In the fifth step, the lower byte of the instruction is retrieved from memory and placed into MDR. The program counter is again incremented to point to the next instruction to be executed.
+
+  \item \textbf{Step 6}: IR[7..0] $\leftarrow$ MDR
+
+    In the last step of the fetch cycle, the lower byte of the instruction is copied into the lower 8 bits of the instruction register. Now, all two bytes of the instruction have been loaded into the instruction register.
+\end{itemize}
+
+\textbf{Execute Cycle}:
+\begin{itemize}
+  \item \textbf{Step 1}: AC[15..8] $\leftarrow$ R27
+
+    The accumulator register is 16 bits, but each register stores only 8 bits. Since we can only read from a single register at a time, we can only load 8 bits in one cycle. This step loads the upper 8 bits of the X register into the upper 8 bits of the accumulator.
+
+  \item \textbf{Step 2}: AC[7..0] $\leftarrow$ R26
+
+    This cycle loads the other 8 bits of the X register, the lower byte, into the lower 8 bits of the accumulator. Now, the address stored in the X register has been loaded into the accumulator.
+
+  \item \textbf{Step 3}: AC $\leftarrow$ AC - 1, MDR $\leftarrow$ R14
+
+    Since the instruction includes a pre-decrement of the X register, the address stored in X is decremented here. At the same time, the value stored at register 14 is copied into MDR, so it can later be stored at the decremented address.
+
+  \item \textbf{Step 4}: R26 $\leftarrow$ AC[7..0]
+
+    Due to the pre-decrement in the instruction, the decremented address is stored back into the X register before doing anything else. Here, the lower 8 bits of the decremented address is copied into the lower byte of the X register.
+
+  \item \textbf{Step 5}: R27 $\leftarrow$ AC[15..8]
+
+    The other byte of the decremented address is stored into the upper byte of the X register here. All 16 bits of the decremented address are now stored in X.
+
+  \item \textbf{Step 6}: MAR $\leftarrow$ AC
+
+    The decremented address is copied into MAR, since that is where the value in register 14 will be stored in memory.
+
+  \item \textbf{Step 7}: M[MAR] $\leftarrow$ MDR
+
+    Finally, the value from register 14, copied to MDR, is stored in the decremented address, completing the store with pre-decrement instruction.
+\end{itemize}
+
+\item For the fetch cycle, I am assuming that the upper byte of the 16-bit instruction is pointed to by PC, while the lower byte of the instruction is pointed to by PC + 1. I am also assuming that, like in AVR, Z refers to registers R31:30.
+
+  The fetch cycle, provided below, is identical to the fetch cycle for question 1.
+
+\textbf{Fetch Cycle}:
+\begin{itemize}
+  \item \textbf{Step 1}: MAR $\leftarrow$ PC
+
+    For the first step, the address in the program counter is moved to MAR so the first byte of the instruction can be retrieved.
+
+  \item \textbf{Step 2}: MDR $\leftarrow$ M[MAR], PC $\leftarrow$ PC + 1
+
+    In the second step, the upper byte of the instruction, stored at the address in MAR, is loaded into MDR. The program counter is incremented to the next (lower) byte of the instruction.
+
+  \item \textbf{Step 3}: IR[15..8] $\leftarrow$ MDR
+
+    In the third step, the byte loaded into MDR (the upper byte of the instruction) is copied into the upper byte of the instruction register. Only one byte can be loaded into the instruction register at a time because MDR is only 8 bits wide, and data in the memory is stored as consecutive bytes.
+
+  \item \textbf{Step 4}: MAR $\leftarrow$ PC
+    
+    In the fourth step, the address in the program counter is again moved to MAR. The instruction is two bytes, but each memory address addresses only one byte, so it takes two loads from memory to get all 16 bits. MAR now points to the lower byte of the instruction.
+
+  \item \textbf{Step 5}: MDR $\leftarrow$ M[MAR], PC $\leftarrow$ PC + 1
+
+    In the fifth step, the lower byte of the instruction is retrieved from memory and placed into MDR. The program counter is again incremented to point to the next instruction to be executed.
+
+  \item \textbf{Step 6}: IR[7..0] $\leftarrow$ MDR
+
+    In the last step of the fetch cycle, the lower byte of the instruction is copied into the lower 8 bits of the instruction register. Now, all two bytes of the instruction have been loaded into the instruction register.
+\end{itemize}
+
+\textbf{Execute Cycle}:
+\begin{itemize}
+  \item \textbf{Step 1}: MAR $\leftarrow$ SP
+
+    The stack pointer points to the location in memory where the next item should be pushed, so it gets copied into MAR, since that is where the first 8 bits of the program counter (return address) will be stored.
+
+  \item \textbf{Step 2}: MDR $\leftarrow$ PC[7..0]
+
+    Since MDR is only 8 bits, only one byte of the return address can be stored at a time. Here the lower 8 bits of the return address are copied into MDR so it can be pushed on the stack.
+
+  \item \textbf{Step 3}: M[MAR] $\leftarrow$ MDR, SP $\leftarrow$ SP - 1
+
+    The lower byte of the return address is pushed onto the stack here, and the stack pointer is decremented. The pointer is decremented, rather than incremented, because the stack grows upwards in memory. It is initialized to the end of the memory and moves up as things are pushed onto it.
+
+  \item \textbf{Step 4}: MAR $\leftarrow$ SP
+
+    The stack pointer is again copied into MAR, since the upper byte of the return address also needs to be pushed onto the stack.
+
+  \item \textbf{Step 5}: MDR $\leftarrow$ PC[15..8]
+
+    The upper byte of the return address is copied into MDR so it can be pushed onto the stack.
+
+  \item \textbf{Step 6}: M[MAR] $\leftarrow$ MDR, SP $\leftarrow$ SP - 1
+
+    The upper byte of the return address is pushed onto the stack, and the stack pointer is decremented again since it must point to one above the last pushed item.
+
+  \item \textbf{Step 7}: PC[15..8] $\leftarrow$ R31
+
+    The instruction should jump to the address stored in the Z register, so the upper byte of the Z register is copied into the upper byte of the program counter, which points to the next instruction to be executed.
+
+  \item \textbf{Step 8}: PC[7..0] $\leftarrow$ R30
+
+    The lower byte of the address in the Z register is copied into the program counter, so PC now contains the full address of the instruction to jump to, completing the execute cycle for the \texttt{ICALL} instruction.
+\end{itemize}
+
+\item
+\begin{enumerate}
+  \item The 16-bit number stored at the address label \texttt{addrA} is being multiplied with the 16-bit number stored at address label \texttt{addrB}. So, 0x000C and 0x020F are being multiplied.
+  \item On the first iteration, 0x0C and 0x0F are multiplied, producing 0xB4, which is an 8-bit value, and no carry. That means the value of R1:R0 is 0x00B4. With no carry and R1 being 0x00, the contents of the memory locations are:
+    \begin{itemize}
+      \item \texttt{LAddrP}: 0xB4
+      \item \texttt{LAddrP+1}: 0x00
+      \item \texttt{LAddrP+2}: 0x00
+      \item \texttt{LAddrP+3}: 0x00
+    \end{itemize}
+  \item On the second iteration, 0x00 and 0x0F are mulitplied, so the result is 0x00 and no carry. So the value of R1:R0 is 0x0000. Since the product is zero, and there's no carry, the memory contents do not change:
+    \begin{itemize}
+      \item \texttt{LAddrP}: 0xB4
+      \item \texttt{LAddrP+1}: 0x00
+      \item \texttt{LAddrP+2}: 0x00
+      \item \texttt{LAddrP+3}: 0x00
+    \end{itemize}
+  \item On the third iteration, 0x0C and 0x02 are multiplied, giving a result of 0x18 and no carry. The value of R1:R0 is 0x0018. The value of R0 is added to the address \texttt{LAddrP + 1}, which becomes 0x18. Since R1 is 0x00, and there is no carry, all other memory locations stay the same:
+    \begin{itemize}
+      \item \texttt{LAddrP}: 0xB4
+      \item \texttt{LAddrP+1}: 0x18
+      \item \texttt{LAddrP+2}: 0x00
+      \item \texttt{LAddrP+3}: 0x00
+    \end{itemize}
+  \item On the fourth iteration, 0x00 and 0x02 are multiplied, giving a result of 0x00 and no carry. The value of R1:R0 is 0x0000. Since both R0 and R1 are 0x00, and there is no carry, the memory contents do not change:
+    \begin{itemize}
+      \item \texttt{LAddrP}: 0xB4
+      \item \texttt{LAddrP+1}: 0x18
+      \item \texttt{LAddrP+2}: 0x00
+      \item \texttt{LAddrP+3}: 0x00
+    \end{itemize}
+\end{enumerate}
+
+\item
+  \begin{enumerate}
+    \item The \texttt{INIT} label is at address 0x0054, while the \texttt{rjmp} instruction is at 0x0000, and 0x0054 - 0x0001 = 0x0053, so \texttt{kkkk kkkk kkkk} = 0000 0101 0011.
+    \item In the \texttt{clr} instruction, both the $d$ bits and the $r$ bits refer to the same register, which is \texttt{r4}, so \texttt{rrrrr} = \texttt{ddddd} = 00100. So \texttt{rd dddd rrrr} = 00 0100 0100.
+    \item This instruction loads the immediate value 0x04 into the ZL register. The ZL register is register \texttt{r30}, which is 14 when offset from 16. Thus, \texttt{KKKK dddd KKKK} = 0000 1110 0100.
+    \item A refers to register 2, so \texttt{d dddd} = 0 0010.
+    \item The $d$ bits refer to the first operand, A, while the $r$ bits refer to the second operand, B. A is register 2, and B is register 3, so \texttt{rd dddd rrrr} = 00 0010 0011.
+    \item \texttt{MUL16\_ILOOP} is at address 0x005D, and the \texttt{brne} instruction is at 0x006B. 0x005D - 0x006C is -0xF, or -15. In two's complement form, -15 is $1110001_2$, so \texttt{kk kkkk k} = 11 1000 1.
+    \item $K$ bits refer to the immediate value, and $d$ bits identify the register from which the immediate value is subtracted. The immediate value is 1, and the register is Z, so \texttt{KKdd KKKK} = 0011 0001.
+    \item This instruction, which is at address 0x0070, jumps back to itself. The value of 0x0070 - 0x0071 is -0x1, or -1. Convering that to two's complement form gives \texttt{kkkk kkkk kkkk} = 1111 1111 1111.
+  \end{enumerate}
+
+\end{enumerate}
+
+\end{document}
