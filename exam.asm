@@ -16,14 +16,15 @@
 .def	avg				= r4	; Average distance result
 .def	dsumlo		= r5	; Low byte for running sum of all three distances
 .def	dsumhi		= r6	; High byte for running sum of all three distances
+.def	sumlo			= r7	; Low byte for sum on loop iterations
+.def	sumhi			= r8	; High byte for sum on loop iterations
 .def	mpr				= r16	; Multipurpose register 
 .def	oloop			= r17	; Outer Loop Counter
 .def	iloop			= r18	; Inner Loop Counter
 .def	bestnum		= r19	; Number corresponding to the closest treasure
-.def	sumlo			= r21	; Low byte for sum on loop iterations
-.def	sumhi			= r22	; High byte for sum on loop iterations
-.def	smallest	= r23	; Distance to the closest treasure
-.def	samecnt		= r24	; Number of treasures that are the same (closest) distance away
+.def	tnum			= r20	; Current treasure number
+.def	smallest	= r21	; Distance to the closest treasure
+.def	samecnt		= r22	; Number of treasures that are the same (closest) distance away
 
 ;***********************************************************
 ;*	Start of Code Segment
@@ -51,6 +52,7 @@ INIT:	; The initialization routine
 		ldi ZH, high(Treasure1<<1)		; Load high byte of Treasure1<<1 program memory address to ZH
 
 		ldi oloop, 3									; Outer loop counter; 3 for 3 treasures
+		ldi tnum, 1
 SquareOperandsOuter:
 		clr A													; Clear the A register, which is used to hold the largest operand
 																	; for each treasure
@@ -65,7 +67,7 @@ SquareOperandsInner:
 		neg mpr												; If value is negative, get the absolute value
 GetLargestOperand:
 		cp mpr, A											; Compare the value in mpr to the value in A
-		brlt StoreSquaredOperands			; If it's less, branch to StoreSquaredOperands
+		brlo StoreSquaredOperands			; If it's less, branch to StoreSquaredOperands
 		mov A, mpr										; If mpr >= A, replace the value in A with mpr; A holds the
 																	; larger of the two operands for each treasure.
 StoreSquaredOperands:
@@ -83,7 +85,7 @@ SquareRootCalculate:
 		mul A, A											; Square the value in A
 		cp rlo, sumlo									; Compare low byte of squared value to sumlo
 		cpc rhi, sumhi								; Compare high byte of squared value to sumhi
-		brge SquareRootFound					; If product is >= sumhi:sumlo, branch to SquareRootFound
+		brsh SquareRootFound					; If product is >= sumhi:sumlo, branch to SquareRootFound
 		inc A													; Otherwise, increment A
 		rjmp SquareRootCalculate			; Jump to SquareRootCalculate
 SquareRootFound:
@@ -92,17 +94,16 @@ SquareRootFound:
 		brlo AddSqrtToSum							; If smallest < A, branch to AddSqrtToSum
 		breq SqrtEqualsSmallest				; If smallest == A, branch to SqrtEqualsSmallest
 		mov smallest, A								; If A < smallest, replace smallest with value in A
-		mov bestnum, oloop						; Copy oloop to bestnum
-		sub bestnum, iloop						; Subtract iloop from bestnum; this gives the treasure number for
-																	; the current iteration
+		mov bestnum, tnum							; Copy tnum (current treasure number) to bestnum
 		ldi samecnt, 1								; Load samecnt to 1, since only one treasure is at this distance so far
 		rjmp AddSqrtToSum							; Jump to AddSqrtToSum
 SqrtEqualsSmallest:
 		inc samecnt										; Increment samecnt, indicating this treasure is at same distance as
 																	; another treasure
 AddSqrtToSum:
-		add dsumlo, A
-		adc dsumhi, zero
+		add dsumlo, A									; Add sqrt to low byte of running distance sum
+		adc dsumhi, zero							; Add any carry from previous instruction to high byte of running sum
+		inc	tnum											; Increment current treasure number
 		dec oloop											; Decrement the outer loop counter
 		brne SquareOperandsOuter			; If oloop is not 0, branch to SquareOperandsOuter
 
