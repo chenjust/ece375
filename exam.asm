@@ -14,6 +14,8 @@
 .def	zero = r2				; Zero register, set to zero in INIT, useful for calculations
 .def	A = r3					; A variable
 .def	B = r4					; Another variable
+.def	dsumlo = r5
+.def	dsumhi = r6
 .def	mpr = r16				; Multipurpose register 
 .def	oloop = r17				; Outer Loop Counter
 .def	iloop = r18				; Inner Loop Counter
@@ -30,7 +32,6 @@
 .dseg
 .org	$0100						; data memory allocation for operands
 operand1:		.byte 2				; allocate 2 bytes for a variable named op1
-opabs: .byte 3
 
 
 ;***********************************************************
@@ -48,23 +49,23 @@ opabs: .byte 3
 ;-----------------------------------------------------------
 INIT:	; The initialization routine
 		clr		zero
-		clr		sumlo
-		clr		sumhi
+		clr		dsumlo
+		clr		dsumhi
 		clr		samecnt
 		ser		smallest
 
 ; Compute square of treasure locations
-		ldi XL, low(opabs)
-		ldi XH, high(opabs)
 		ldi YL, low(Result1)
 		ldi YH, high(Result1)
 		ldi	ZL,	low(Treasure1<<1)
 		ldi ZH, high(Treasure1<<1)
-		ldi oloop, 3									; Outer loop counter; 3 for 3 treasures
 
+		ldi oloop, 3									; Outer loop counter; 3 for 3 treasures
 SquareOperandsOuter:
 		clr A													; Clear the A register, which is used to hold the largest operand
 																	; for each treasure
+		clr sumlo
+		clr sumhi
 		ldi iloop, 2									; Inner loop counter; 2 operands per treasure
 SquareOperandsInner:
 		lpm mpr, Z+										; Load operand from program memory
@@ -81,72 +82,40 @@ StoreSquaredOperands:
 		muls mpr, mpr									; Square the value of the operand
 		st Y+, rlo										; Store low byte of the product
 		st Y+, rhi										; Store high byte of the product
+		add sumlo, rlo
+		adc sumhi, rhi
 		dec iloop											; Decrement the inner loop counter
 		brne SquareOperandsInner			; If iloop is not 0, branch to SquareOperandsInner
-		adiw YH:YL, 3									; Add 3 to the Y pointer for first memory location of next treasure
-		st X+, A											; Store the larger of the two treasure operands at X pointer
-		dec oloop											; Decrement the outer loop counter
-		brne SquareOperandsOuter			; If oloop is not 0, branch to SquareOperandsOuter
+		st Y+, sumlo
+		st Y+, sumhi
 
-		ldi YL, low(Result1)
-		ldi YH, high(Result1)
-		ldi oloop, 3									; Outer loop counter; 3 for 3 treasures
-AddSquaredOperands:
-		ld A, Y+											; Load low byte of first squared operand (x^2) into A
-		ldd B, Y+1										; Load low byte of second squared operand (y^2) into B
-		add A, B											; Add the low bytes of each squared operand and store into A
-		std Y+3, A										; Store sum of lower bytes at memory location Y+3
-		ld A, Y+											; Load high byte of first squared operand (x^2) into A
-		ldd B, Y+1										; Load high byte of second squared operand (y^2) into B
-		adc A, B											; Add high bytes of each operand with carry and store into A
-		std Y+3, A										; Store sum of high bytes at memory location Y+3
-		dec oloop											; Decrement outer loop counter
-		breq SquareRootInit						; If oloop is 0, branch to SquareRootInit
-		adiw YH:YL, 5									; Add 5 to the Y pointer for memory location of next treasure
-		rjmp AddSquaredOperands				; Jump back to AddSquaredOperands
-
-SquareRootInit:
-		ldi XL, low(opabs+3)
-		ldi XH, high(opabs+3)
-		ldi YL, low(Result3+6)
-		ldi YH, high(Result3+6)
-		ldi oloop, 3
-SquareRootLoop:
-		ld B, -Y											; Load high byte of sum (x^2 + y^2) into B
-		ld A, -Y											; Load low byte of sum (x^2 + y^2) into B
-
-		ld mpr, -X										; Load the smaller of |x| and |y| into mpr; instead of starting
-																	; from 0, we start from the larger of the two operands to find
-																	; the square root
 SquareRootCalculate:
-		mul mpr, mpr									; Square the value in mpr
-		cp rlo, A											; Compare low byte of squared value to A
-		cpc rhi, B										; Compare high byte of squared value to B
-		brge SquareRootFound					; If product is >= B:A, branch to SquareRootFound
-		inc mpr												; Otherwise, increment mpr
+		mul A, A											; Square the value in A
+		cp rlo, sumlo									; Compare low byte of squared value to sumlo
+		cpc rhi, sumhi								; Compare high byte of squared value to sumhi
+		brge SquareRootFound					; If product is >= sumhi:sumlo, branch to SquareRootFound
+		inc A													; Otherwise, increment A
 		rjmp SquareRootCalculate			; Jump to SquareRootCalculate
 SquareRootFound:
-		std Y+2, mpr									; Store the square root value at memory location Y+2
-		cp smallest, mpr							; Compare the value in smallest with mpr
-		brlo AddSqrtToSum							; If smallest < mpr, branch to AddSqrtToSum
-		breq SqrtEqualsSmallest				; If smallest == mpr, branch to SqrtEqualsSmallest
-		mov smallest, mpr							; This mpr < smallest, so replace smallest with value in mpr
-		mov dataptr, oloop						; Copy oloop to dataptr; this is the number of the closest treasure
+		st Y+, A											; Store the square root value at memory location Y
+		cp smallest, A								; Compare the value in smallest with A
+		brlo AddSqrtToSum							; If smallest < A, branch to AddSqrtToSum
+		breq SqrtEqualsSmallest				; If smallest == A, branch to SqrtEqualsSmallest
+		mov smallest, A								; If A < smallest, replace smallest with value in A
+		mov dataptr, oloop						; Copy oloop to dataptr
+		sub dataptr, iloop						; Subtract iloop from dataptr; this gives the treasure number for
+																	; the current iteration
 		ldi samecnt, 1								; Load samecnt to 1, since only one treasure is at this distance so far
 		rjmp AddSqrtToSum							; Jump to AddSqrtToSum
 SqrtEqualsSmallest:
 		inc samecnt										; Increment samecnt, indicating this treasure is at same distance as
 																	; another treasure
 AddSqrtToSum:
-		add sumlo, mpr								; Add low byte of sum with mpr and store back into sumlo
-		adc	sumhi, zero								; Add any carry from the previous instruction to sumhi
-SRtCont:
-		dec oloop											; Decrement the loop counter
-		breq SquareRootDone						; If oloop is 0, branch to SquareRootDone
-		sbiw YH:YL, 5									; Subtract 5 from Y pointer for memory location of previous treasure
-		rjmp SquareRootLoop						; Jump to SquareRootLoop
+		add dsumlo, A
+		adc dsumhi, zero
+		dec oloop											; Decrement the outer loop counter
+		brne SquareOperandsOuter			; If oloop is not 0, branch to SquareOperandsOuter
 
-SquareRootDone:
 		cpi samecnt, 2								; Compare value of samecnt (number of treasures that share the closest
 																	; distance) to 2
 		breq BestDistanceSame					; If two treasures had the (same) closest distance, branch to
@@ -158,30 +127,26 @@ SquareRootDone:
 BestDistanceSame:
 		ldi dataptr, -2								; Two treasures had the closest distance; load -2 to dataptr
 BestDistanceStore:
-		ldi YL, low(BestChoice)
-		ldi YH, high(BestChoice)
-		st Y, dataptr									; Store treasure with closest distance at BestChoice address
+		st Y+, dataptr								; Store treasure with closest distance at BestChoice address
 
 		clr smallest									; Clear the smallest register
 		ldi mpr, 3										; Load 3 to mpr; this is the number of treasures
 AverageLoop:
-		cp sumlo, mpr									; Compare low byte of sum of all distances to mpr (3)
-		cpc sumhi, zero								; Compare high byte of distance sum with any carry from previous compare
+		cp dsumlo, mpr								; Compare low byte of sum of all distances to mpr (3)
+		cpc dsumhi, zero							; Compare high byte of distance sum with any carry from previous compare
 		brlo AverageFound							; If the sum is < 3, branch to AverageFound
-		sub sumlo, mpr								; Subtract 3 from lower byte of sum
-		sbc sumhi, zero								; Subtract any carry from the previous sub instruction
+		sub dsumlo, mpr								; Subtract 3 from lower byte of sum
+		sbc dsumhi, zero							; Subtract any carry from the previous sub instruction
 		inc smallest									;	Increment the number of times we're subtracted
 		rjmp AverageLoop							; Jump to AverageLoop
 AverageFound:
-		cpi sumlo, 2									; Compare value of sumlo to 2
+		ldi mpr, 2										; Load 2 to mpr
+		cp dsumlo, mpr								; Compare value of dsumlo to 2
 		brlo AverageStore							; If sumlo < 2, jump to AverageStore; this means the remainder <= 1
 		inc smallest									; Otherwise, round up, since the remainder is 2
 		rjmp AverageStore							; Jump to AverageStore
 AverageStore:
-		ldi YL, low(AvgDistance)
-		ldi YH, high(AvgDistance)
 		st Y, smallest								; Store rounded average at Y pointer
-
 
 		jmp	Grading
 
